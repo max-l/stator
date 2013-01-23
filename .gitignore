@@ -1,0 +1,11 @@
+
+# SBT ignores :
+
+target/*
+project/project
+project/project/target/
+project/plugins/target/*
+project/plugins/project/*
+/*/target/*
+
+
