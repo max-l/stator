@@ -7,7 +7,7 @@ import twirl.api._
 
 
 object Keys {
-
+    
 	val statorSupportedLanguageCodes = SettingKey[Seq[Lang]]("stator-supported-language-codes")
 
 	val statorExclusionFilter = TaskKey[File=>Boolean]("stator-templates-exclusion-filter")	
@@ -89,7 +89,35 @@ object Keys {
 
 	val statorGenerate = TaskKey[Seq[File]]("stator-generate", "Generates the static site")
 
+  	def binaryScalaVersion(scalaVersion: String): String =
+	    if (scalaVersion.contains("-")) scalaVersion // pre-release version
+	    else if (scalaVersion.startsWith("2.9")) "2.9.2"
+	    else if (scalaVersion.startsWith("2.10")) "2.10"
+	    else if (scalaVersion.startsWith("2.11")) "2.11"
+	    else throw new IllegalArgumentException("Unsupported Scala version "+scalaVersion)
+
 	def settings = twirl.sbt.TwirlPlugin.Twirl.settings ++ Seq(		
+		//add the matching stator-api version :
+ 		libraryDependencies <+= (scalaVersion) { sV =>
+        	val scalaV = binaryScalaVersion(sV)
+        	val crossVersionedName = "stator-api_"+scalaV
+        	import scala.collection.JavaConversions._
+        	val mfs = com.stronglinks.stator.Keys.getClass().getClassLoader().getResources("META-INF/MANIFEST.MF").toList
+
+			val version = 
+				mfs.find(_.getPath.indexOf("stator-sbt.jar") != -1) match {
+					case None => sys.error("could not find manifest of stator-sbt.jar")
+					case Some(u) =>
+						scala.io.Source.fromURL(u).getLines.find(_.startsWith("Implementation-Version:")) match {
+							case None => sys.error("did not find Implementation-Version in manifest")
+							case Some(s) => s.split(':').toList match {
+			        			case List(_, v) => v.trim
+			        			case _ => sys.error("bad manifest entry: " + s)
+			        		}
+						}
+				}
+        	"com.stronglinks" % crossVersionedName % version
+      	},
 		twirl.sbt.TwirlPlugin.Twirl.twirlImports := Seq(
           "com.stronglinks.stator._",
           "com.stronglinks.stator.Stator._"
